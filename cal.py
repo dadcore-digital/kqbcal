@@ -1,10 +1,22 @@
 import csv
-from datetime import datetime
+from datetime import datetime, timedelta
 from ics import Calendar, Event
+from ics.parse import ContentLine
 import json
+import pytz
 import requests
 import sys
 
+def convert_et_to_utc(date_obj):
+    """Convert a datetime object from Eastern to UTC."""
+    tz = pytz.timezone('US/Eastern')
+    now = pytz.utc.localize(datetime.utcnow())
+    is_edt =now.astimezone(tz).dst() != timedelta(0)
+
+    if is_edt:
+        return date_obj + timedelta(hours=4) 
+    else:
+        return date_obj + timedelta(hours=5) 
 
 def get_match_csv(output_filename, url=None):
     """
@@ -76,17 +88,34 @@ def generate_calendar(matches):
     matches -- A dictionary of matches.
     """
     cal = Calendar()
+    
+    # Set Calendar Metadata
+    cal.extra.append(ContentLine(name='X-WR-CALNAME', value='KQB Matches'))  
+    cal.extra.append(
+        ContentLine(name='X-WR-CALDESC', value='Upcoming matches and events in the Killer Queen Black community.'))  
+    cal.extra.append(ContentLine(name='X-PUBLISHED-TTL', value='PT15M'))  
+
+    # Add all events to calendar
     for match in matches:
 
         try:
             event = Event()
-            event.name = f"{match['tier']}{match['circ']} {match['away team']} at {match['home team']}"
+
+            home_team = match['home team']
+            away_team = match['away team']
+
+            if (
+                not home_team or not away_team):
+                continue
+
+            event.name = f"{match['tier']}{match['circ']} {away_team} at {home_team}"
             
             match_date = match['date']
             if ('TBD' in match_date
                 or not match_date):
                 continue
 
+            # Set all TDB times to midnight
             if ('TBD' in match['time (eastern)']
                 or not match['time (eastern)']):
                 match_time = '00:00:00'
@@ -94,8 +123,57 @@ def generate_calendar(matches):
                 match_time =  datetime.strptime(
                     match['time (eastern)'], '%I:%M %p').strftime('%H:%M:%S') 
 
-            event.begin = f"{match['date']} {match_time}"              
+            # Convert match time from ET to UTC
+            et_match_dt = datetime.strptime(f'{match_date} {match_time}', '%Y-%m-%d %H:%M:%S')
+            utc_match_dt = convert_et_to_utc(et_match_dt)
+
+            event.begin = utc_match_dt.strftime('%Y-%m-%d %H:%M:%S')
+            event.duration = timedelta(minutes=60)     
+
+            description = ''
+
+            # Tier and Circuit
+            if match['tier'] and match['circ']:
+                tier = f'Tier {match["tier"]}'
+
+                circuit = ''
+                circ_abbr = match['circ']
+
+                if circ_abbr == 'W':
+                    circuit = 'West'
+                elif circ_abbr == 'E':
+                    circuit = 'East'
+                elif circ_abbr == 'Wa':
+                    circuit = 'West Conference A'
+                elif circ_abbr == 'Wb':
+                    circuit = 'West Conference B'
+
+                description += f'{tier} {circuit}'                
+
+            # Add Caster Details to Description
+            if match['caster']:
+                description += f'\nCasted by {match["caster"]}'
+            else:
+                description += f'\nNo caster yet'
             
+            if match['co-casters']:
+                description += f'\nCo-Casted by {match["co-casters"]}'
+
+            # Add Stream and VOD Links
+            if match['stream link'] and 'TBD' not in match['stream link'] :
+                link = match['stream link']
+
+                if not link.startswith('http'):
+                    link = f'https://{link}'
+                                                
+                description += f'\n{link}'
+            
+            if match['vod link']:
+                description += f'\n\nVOD Link:\n{match["vod link"]}'
+
+            event.description = description
+
+            # Finalize Event
             cal.events.add(event)
         
         except ValueError:    
