@@ -1,0 +1,17 @@
+*.DS_Store
+.DS_Store
+*.pyc
+local_settings.py
+*.log
+.idea/
+nohup.out
+*.log
+*.ipynb
+*.ipyn
+__pycache__/
+.cache/
+debug.png
+secrets.json
+course/
+node_modules/
+video/
