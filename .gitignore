@@ -17,3 +17,4 @@ node_modules/
 video/
 credentials.json
 *.csv
+*.ics

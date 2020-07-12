@@ -1,4 +1,6 @@
 import csv
+from datetime import datetime
+from ics import Calendar, Event
 import json
 import requests
 import sys
@@ -57,16 +59,50 @@ def parse_matches_csv(csv_filename):
                 headers[key] = row.index(key)        
 
         else:
-            row_data = []
+            match = {}
 
             for key, val in headers.items():
-                match = {}
-                match[key] = row[val]
-                row_data.append(match)
+                match[key.lower()] = row[val]
             
-            matches.append(row_data)
+            matches.append(match)
 
     return matches
+
+def generate_calendar(matches):
+    """
+    Generate a .ics file matches from a dicationary.
+
+    Arguments:
+    matches -- A dictionary of matches.
+    """
+    cal = Calendar()
+    for match in matches:
+
+        try:
+            event = Event()
+            event.name = f"{match['tier']}{match['circ']} {match['away team']} at {match['home team']}"
+            
+            match_date = match['date']
+            if ('TBD' in match_date
+                or not match_date):
+                continue
+
+            if ('TBD' in match['time (eastern)']
+                or not match['time (eastern)']):
+                match_time = '00:00:00'
+            else:
+                match_time =  datetime.strptime(
+                    match['time (eastern)'], '%I:%M %p').strftime('%H:%M:%S') 
+
+            event.begin = f"{match['date']} {match_time}"              
+            
+            cal.events.add(event)
+        
+        except ValueError:    
+            pass
+    
+    with open('matches.ics', 'w') as cal_file:
+        cal_file.writelines(cal)    
 
 if __name__ == '__main__':
     """
@@ -82,3 +118,4 @@ if __name__ == '__main__':
 
     get_match_csv(filename)
     matches = parse_matches_csv(filename)
+    generate_calendar(matches)    
