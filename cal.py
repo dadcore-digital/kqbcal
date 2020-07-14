@@ -292,8 +292,8 @@ if __name__ == '__main__':
     except IndexError:
         filename = 'matches.csv'
 
-    # get_sheet_csv('match_csv_url', 'matches.csv')
-    # get_sheet_csv('teams_csv_url', 'teams.csv')
+    get_sheet_csv('match_csv_url', 'matches.csv')
+    get_sheet_csv('teams_csv_url', 'teams.csv')
     matches = parse_matches_csv('matches.csv')
     teams = parse_teams_csv('teams.csv')
     generate_calendar(matches, teams)    
