@@ -1,1 +1,4 @@
-{"match_csv_url": "https://docs.google.com/spreadsheets/d/11QHK-mGfUhhHa8OsFZwiYn2da6IXUTPYuVKtXC7mMjU/export?format=csv&id=11QHK-mGfUhhHa8OsFZwiYn2da6IXUTPYuVKtXC7mMjU&gid=1122078494"}
+{
+    "match_csv_url": "https://docs.google.com/spreadsheets/d/11QHK-mGfUhhHa8OsFZwiYn2da6IXUTPYuVKtXC7mMjU/export?format=csv&id=11QHK-mGfUhhHa8OsFZwiYn2da6IXUTPYuVKtXC7mMjU&gid=1122078494",
+    "teams_csv_url": "https://docs.google.com/spreadsheets/u/1/d/11QHK-mGfUhhHa8OsFZwiYn2da6IXUTPYuVKtXC7mMjU/export?format=csv&id=11QHK-mGfUhhHa8OsFZwiYn2da6IXUTPYuVKtXC7mMjU&gid=0"
+}

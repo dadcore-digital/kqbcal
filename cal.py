@@ -18,17 +18,19 @@ def convert_et_to_utc(date_obj):
     else:
         return date_obj + timedelta(hours=5) 
 
-def get_match_csv(output_filename, url=None):
+def get_sheet_csv(sheet_url_key, output_filename, url=None):
     """
     Access a publicly available googlesheet tab of match data and save as CSV.
     
     Arguments:
+    sheet_url_key -- Key referencing settings.json the individual sheet to
+                     export to CSV.
     output_filename -- Save CSV to this filename (str)
     url -- A specially crafted URL that provides a CSV export of a google sheet
            tab. Imports from settings.json if not provided. (str) (optional)
     """
     if not url:
-        url = json.loads(open('settings.json').read())['match_csv_url'] 
+        url = json.loads(open('settings.json').read())[sheet_url_key] 
 
     resp = requests.get(url)
     
@@ -74,18 +76,78 @@ def parse_matches_csv(csv_filename):
             match = {}
 
             for key, val in headers.items():
-                match[key.lower()] = row[val]
+                match[key.lower().replace(' ', '_')] = row[val]
             
             matches.append(match)
 
     return matches
 
-def generate_calendar(matches):
+def parse_teams_csv(csv_filename):
+    """
+    Parse through a CSV file of teams, convert to a dictionary of team data.
+
+    Arguments:
+    csv_filename -- Filename of CSV of matches to import. (str)
+    """
+    file = open(csv_filename)
+    rows = csv.reader(file, delimiter=',')
+    
+    teams = []
+    headers = {
+        'Tier': None,
+        'Circuit': None,
+        'Team': None,
+        'Match Wins': None,
+        'Matches Played': None,
+        'Set Wins': None,
+        'Captain': None,
+        'Members': []
+    }
+
+    for idx, row in enumerate(rows):
+    
+        # Set Row Header Positions
+        if idx == 0:
+            for key in headers.keys():
+                headers[key] = row.index(key)        
+
+        else:
+            team = {}
+
+            for key, val in headers.items():
+                if key == 'Members':
+                    team['members'] = row[10:17]  
+                    
+                    # Drop blank member entries
+                    team['members'] = [x for x in team['members'] if x]
+                else:
+                    team[key.lower().replace(' ', '_')] = row[val]
+
+            teams.append(team)
+
+        # Calculate Extra Stats
+        for team in teams:
+            team['matches_lost'] = str(
+                int(team['matches_played']) - int(team['match_wins']))
+
+        # Add lookup-dict
+        teams_dict = {}
+        teams_dict['all'] = teams
+
+        for team in teams:
+            teams_dict[team['team']] = team 
+
+
+    
+    return teams_dict
+
+def generate_calendar(matches, teams):
     """
     Generate a .ics file matches from a dicationary.
 
     Arguments:
-    matches -- A dictionary of matches.
+    matches -- A list of dicts containing all matches. (list)
+    teams -- A list of dicts containg all teams. (list)
     """
     cal = Calendar()
     
@@ -101,8 +163,8 @@ def generate_calendar(matches):
         try:
             event = Event()
 
-            home_team = match['home team']
-            away_team = match['away team']
+            home_team = match['home_team']
+            away_team = match['away_team']
 
             if (
                 not home_team or not away_team):
@@ -116,12 +178,12 @@ def generate_calendar(matches):
                 continue
 
             # Set all TDB times to midnight
-            if ('TBD' in match['time (eastern)']
-                or not match['time (eastern)']):
+            if ('TBD' in match['time_(eastern)']
+                or not match['time_(eastern)']):
                 match_time = '00:00:00'
             else:
                 match_time =  datetime.strptime(
-                    match['time (eastern)'], '%I:%M %p').strftime('%H:%M:%S') 
+                    match['time_(eastern)'], '%I:%M %p').strftime('%H:%M:%S') 
 
             # Convert match time from ET to UTC
             et_match_dt = datetime.strptime(f'{match_date} {match_time}', '%Y-%m-%d %H:%M:%S')
@@ -159,17 +221,53 @@ def generate_calendar(matches):
             if match['co-casters']:
                 description += f'\nCo-Casted by {match["co-casters"]}'
 
-            # Add Stream and VOD Links
-            if match['stream link'] and 'TBD' not in match['stream link'] :
-                link = match['stream link']
+            # Stream Link
+            if match['stream_link'] and 'TBD' not in match['stream_link'] :
+                link = match['stream_link']
 
-                if not link.startswith('http'):
-                    link = f'https://{link}'
-                                                
-                description += f'\n{link}'
-            
-            if match['vod link']:
-                description += f'\n\nVOD Link:\n{match["vod link"]}'
+            if not link.startswith('http'):
+                link = f'https://{link}'
+                                            
+            description += f'\n{link}'
+
+
+            # Add Team Stats
+            try:
+                if (
+                    match['away_team'] in teams.keys()
+                    and match['home_team'] in teams.keys()
+                ):
+                    away_team = teams[match['away_team']]
+                    home_team = teams[match['home_team']]
+
+                    # Away Team Stats
+                    description += f'\n\n[{match["away_team"]}]'
+                    description += f"\n{away_team['match_wins']} Wins, {away_team['matches_lost']} Losses"
+                    
+                    description += '\n'
+                    
+                    for member in away_team['members']:
+                        description += f'{member}, '
+                    
+                    description = description.rstrip(', ')
+
+                    # Home Team Stats
+                    description += f'\n\n[{match["home_team"]}]'
+                    description += f"\n{home_team['match_wins']} Wins, {home_team['matches_lost']} Losses"
+                    
+                    description += '\n'
+                    
+                    for member in home_team['members']:
+                        description += f'{member}, '
+                    
+                    description = description.rstrip(', ')
+
+            except:
+                pass                    
+
+            # VOD Link            
+            if match['vod_link']:
+                description += f'\n\nVOD Link:\n{match["vod_link"]}'
 
             event.description = description
 
@@ -194,6 +292,8 @@ if __name__ == '__main__':
     except IndexError:
         filename = 'matches.csv'
 
-    get_match_csv(filename)
-    matches = parse_matches_csv(filename)
-    generate_calendar(matches)    
+    # get_sheet_csv('match_csv_url', 'matches.csv')
+    # get_sheet_csv('teams_csv_url', 'teams.csv')
+    matches = parse_matches_csv('matches.csv')
+    teams = parse_teams_csv('teams.csv')
+    generate_calendar(matches, teams)    
