@@ -116,7 +116,7 @@ def parse_teams_csv(csv_filename):
 
             for key, val in headers.items():
                 if key == 'Members':
-                    team['members'] = row[10:17]  
+                    team['members'] = row[12:19]  
                     
                     # Drop blank member entries
                     team['members'] = [x for x in team['members'] if x]
