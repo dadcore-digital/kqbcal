@@ -222,13 +222,15 @@ def generate_calendar(matches, teams):
                 description += f'\nCo-Casted by {match["co-casters"]}'
 
             # Stream Link
+            link = ''
             if match['stream_link'] and 'TBD' not in match['stream_link'] :
                 link = match['stream_link']
 
-            if not link.startswith('http'):
-                link = f'https://{link}'
-                                            
-            description += f'\n{link}'
+            if link:
+                if not link.startswith('http'):
+                    link = f'https://{link}'
+                                                
+                description += f'\n{link}'
 
 
             # Add Team Stats
