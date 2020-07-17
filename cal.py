@@ -180,10 +180,12 @@ def generate_calendar(matches, teams):
             # Set all TDB times to midnight
             if ('TBD' in match['time_(eastern)']
                 or not match['time_(eastern)']):
-                match_time = '00:00:00'
+                match_time = '00:00'
             else:
+                # We don't need seconds!
+                match_time = match['time_(eastern)'].replace(':00:00', ':00')
                 match_time =  datetime.strptime(
-                    match['time_(eastern)'], '%I:%M %p').strftime('%H:%M:%S') 
+                    match_time, '%I:%M %p').strftime('%H:%M:%S') 
 
             # Convert match time from ET to UTC
             et_match_dt = datetime.strptime(f'{match_date} {match_time}', '%Y-%m-%d %H:%M:%S')
