@@ -169,7 +169,6 @@ def generate_calendar(matches, teams):
             if (
                 not home_team or not away_team):
                 continue
-
             event.name = f"{match['tier']}{match['circ']} {away_team} at {home_team}"
             
             match_date = match['date']
@@ -184,6 +183,7 @@ def generate_calendar(matches, teams):
             else:
                 # We don't need seconds!
                 match_time = match['time_(eastern)'].replace(':00:00', ':00')
+                match_time = match['time_(eastern)'].replace(':30:00', ':30')
                 match_time =  datetime.strptime(
                     match_time, '%I:%M %p').strftime('%H:%M:%S') 
 
