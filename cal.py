@@ -182,8 +182,9 @@ def generate_calendar(matches, teams):
                 match_time = '00:00'
             else:
                 # We don't need seconds!
+                
                 match_time = match['time_(eastern)'].replace(':00:00', ':00')
-                match_time = match['time_(eastern)'].replace(':30:00', ':30')
+                match_time = match_time.replace(':30:00', ':30')
                 match_time =  datetime.strptime(
                     match_time, '%I:%M %p').strftime('%H:%M:%S') 
 
