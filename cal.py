@@ -101,7 +101,8 @@ def parse_teams_csv(csv_filename):
         'Matches Played': None,
         'Set Wins': None,
         'Captain': None,
-        'Members': []
+        'Members': [],
+        'Playoff Seed': None
     }
 
     for idx, row in enumerate(rows):
@@ -129,15 +130,13 @@ def parse_teams_csv(csv_filename):
         for team in teams:
             team['matches_lost'] = str(
                 int(team['matches_played']) - int(team['match_wins']))
-
+        
         # Add lookup-dict
         teams_dict = {}
         teams_dict['all'] = teams
 
         for team in teams:
             teams_dict[team['team']] = team 
-
-
     
     return teams_dict
 
@@ -181,12 +180,10 @@ def generate_calendar(matches, teams):
                 or not match['time_(eastern)']):
                 match_time = '00:00'
             else:
-                # We don't need seconds!
-                
+                # We don't need seconds!            
                 match_time = match['time_(eastern)'].replace(':00:00', ':00')
                 match_time = match_time.replace(':30:00', ':30')
-                match_time =  datetime.strptime(
-                    match_time, '%I:%M %p').strftime('%H:%M:%S') 
+                match_time =  datetime.strptime(match_time, '%I:%M %p').strftime('%H:%M:%S') 
 
             # Convert match time from ET to UTC
             et_match_dt = datetime.strptime(f'{match_date} {match_time}', '%Y-%m-%d %H:%M:%S')
@@ -247,7 +244,7 @@ def generate_calendar(matches, teams):
 
                     # Away Team Stats
                     description += f'\n\n[{match["away_team"]}]'
-                    description += f"\n{away_team['match_wins']} Wins, {away_team['matches_lost']} Losses"
+                    description += f'\nPlayoff Seed: {away_team["playoff_seed"]} (season {away_team["match_wins"]}W/{away_team["matches_lost"]}L)'
                     
                     description += '\n'
                     
@@ -258,7 +255,7 @@ def generate_calendar(matches, teams):
 
                     # Home Team Stats
                     description += f'\n\n[{match["home_team"]}]'
-                    description += f"\n{home_team['match_wins']} Wins, {home_team['matches_lost']} Losses"
+                    description += f'\nPlayoff Seed: {home_team["playoff_seed"]} (season {home_team["match_wins"]}W/{home_team["matches_lost"]}L)'
                     
                     description += '\n'
                     
