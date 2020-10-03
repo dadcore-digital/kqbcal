@@ -101,7 +101,7 @@ def parse_teams_csv(csv_filename):
         'Matches Played': None,
         'Set Wins': None,
         'Captain': None,
-        'Members': [],
+        'all players': [],
         'Playoff Seed': None
     }
 
@@ -116,7 +116,7 @@ def parse_teams_csv(csv_filename):
             team = {}
 
             for key, val in headers.items():
-                if key == 'Members':
+                if key == 'all players':
                     team['members'] = row[12:19]  
                     
                     # Drop blank member entries
