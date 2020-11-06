@@ -11,7 +11,7 @@ def convert_et_to_utc(date_obj):
     """Convert a datetime object from Eastern to UTC."""
     tz = pytz.timezone('US/Eastern')
     now = pytz.utc.localize(datetime.utcnow())
-    is_edt =now.astimezone(tz).dst() != timedelta(0)
+    is_edt = date_obj.astimezone(tz).dst() != timedelta(0)
 
     if is_edt:
         return date_obj + timedelta(hours=4) 
