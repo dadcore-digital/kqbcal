@@ -72,11 +72,11 @@ def generate_calendar(matches):
         event.duration = timedelta(minutes=60)     
 
         # Tier and Circuit
-        description = circuit_name
+        description = f'🌐 {circuit_name}'
 
         # Add Caster Details to Description
         if match['primary_caster']:
-            description += f'\nCasted by {match["primary_caster"]["name"]}'
+            description += f'\n\n🎙️ Casted by {match["primary_caster"]["name"]}'
 
             if match['secondary_casters']:
                 description += f'\nCo-Casted by '
@@ -89,17 +89,11 @@ def generate_calendar(matches):
             # Stream Link
             if match['primary_caster']['stream_link']:
                 description += f"\n{match['primary_caster']['stream_link']}"
-
-        else:
-            description += f'\nNo caster yet'
         
-        
-
         # Away Team Stats
-        description += f"\n\n[{away_team['name']}]"
-        description += f"\n({away_team['wins']}W/{away_team['losses']}L)"
+        description += f"\n\n🔶 {away_team['name']} [{away_team['wins']}W/{away_team['wins']}L]"
         
-        description += '\n'
+        description += '\n\n'
         
         for member in away_team['members']:
             description += f'{member}, '
@@ -107,10 +101,8 @@ def generate_calendar(matches):
         description = description.rstrip(', ')
 
         # Home Team Stats
-        description += f"\n\n[{home_team['name']}]"
-        description += f"\n({home_team['wins']}W/{home_team['losses']}L)"
-        
-        description += '\n'
+        description += f"\n\n🔷 {home_team['name']} [{home_team['wins']}W/{home_team['wins']}L]"        
+        description += '\n\n'
         
         for member in home_team['members']:
             description += f'{member}, '
