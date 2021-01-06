@@ -81,7 +81,7 @@ def generate_calendar(matches):
             if match['secondary_casters']:
                 description += f'\nCo-Casted by '
                 for cocaster in match['secondary_casters']:
-                    description += cocaster['name'] + ','
+                    description += cocaster + ','
                 
                 # Get rid of trailing comma
                 description = description.rstrip(',')
