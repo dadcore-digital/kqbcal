@@ -1,4 +1,5 @@
 import csv
+import dateutil.parser as dp
 from datetime import datetime, timedelta
 from ics import Calendar, Event
 from ics.parse import ContentLine
@@ -7,146 +8,36 @@ import pytz
 import requests
 import sys
 
-def convert_et_to_utc(date_obj):
-    """Convert a datetime object from Eastern to UTC."""
-    tz = pytz.timezone('US/Eastern')
-    now = pytz.utc.localize(datetime.utcnow())
-    is_edt = date_obj.astimezone(tz).dst() != timedelta(0)
-
-    if is_edt:
-        return date_obj + timedelta(hours=4) 
-    else:
-        return date_obj + timedelta(hours=5) 
-
-def get_sheet_csv(sheet_url_key, output_filename, url=None):
+def get_match_data(params):
     """
-    Access a publicly available googlesheet tab of match data and save as CSV.
+    Return match data from the Buzz API.
+    """
+    API_BASE = json.loads(open('settings.json').read())['API_BASE']
+    url = f'{API_BASE}/matches/?{params}'
     
-    Arguments:
-    sheet_url_key -- Key referencing settings.json the individual sheet to
-                     export to CSV.
-    output_filename -- Save CSV to this filename (str)
-    url -- A specially crafted URL that provides a CSV export of a google sheet
-           tab. Imports from settings.json if not provided. (str) (optional)
-    """
-    if not url:
-        url = json.loads(open('settings.json').read())[sheet_url_key] 
-
-    resp = requests.get(url)
-    
-    with open(output_filename, 'wb') as fd:
-        for chunk in resp.iter_content(chunk_size=128):
-            fd.write(chunk)
-
-    return output_filename
-
-def parse_matches_csv(csv_filename):
-    """
-    Parse through a CSV file of matches, convert to a dictionary of matches.
-
-    Arguments:
-    csv_filename -- Filename of CSV of matches to import. (str)
-    """
-    file = open(csv_filename)
-    rows = csv.reader(file, delimiter=',')
-    
+    resp = requests.get(url).json()
     matches = []
-    headers = {
-        'Tier': None,
-        'Circ': None,
-        'Away Team': None,
-        'Home Team': None,
-        'Time (Eastern)': None,
-        'Date': None,
-        'Caster': None,
-        'Co-casters': None,
-        'Stream Link': None,
-        'VOD Link': None,
-        'Concatenate': None 
-    }
 
-    for idx, row in enumerate(rows):
+    # Handle paginated results
+    if resp['next']:
+
+        while resp['next']:
+            matches += (resp['results'])
+            url = resp['next']
+            resp = requests.get(url).json()
     
-        # Set Row Header Positions
-        if idx == 0:
-            for key in headers.keys():
-                headers[key] = row.index(key)        
-
-        else:
-            match = {}
-
-            for key, val in headers.items():
-                match[key.lower().replace(' ', '_')] = row[val]
-            
-            matches.append(match)
+    # Just one page!
+    else:
+        matches = resp['results']
 
     return matches
 
-def parse_teams_csv(csv_filename):
-    """
-    Parse through a CSV file of teams, convert to a dictionary of team data.
-
-    Arguments:
-    csv_filename -- Filename of CSV of matches to import. (str)
-    """
-    file = open(csv_filename)
-    rows = csv.reader(file, delimiter=',')
-    
-    teams = []
-    headers = {
-        'Tier': None,
-        'Circuit': None,
-        'Team': None,
-        'Match Wins': None,
-        'Matches Played': None,
-        'Set Wins': None,
-        'Captain': None,
-        'all players': [],
-        'Playoff Seed': None
-    }
-
-    for idx, row in enumerate(rows):
-    
-        # Set Row Header Positions
-        if idx == 0:
-            for key in headers.keys():
-                headers[key] = row.index(key)        
-
-        else:
-            team = {}
-
-            for key, val in headers.items():
-                if key == 'all players':
-                    team['members'] = row[12:19]  
-                    
-                    # Drop blank member entries
-                    team['members'] = [x for x in team['members'] if x]
-                else:
-                    team[key.lower().replace(' ', '_')] = row[val]
-
-            teams.append(team)
-
-        # Calculate Extra Stats
-        for team in teams:
-            team['matches_lost'] = str(
-                int(team['matches_played']) - int(team['match_wins']))
-        
-        # Add lookup-dict
-        teams_dict = {}
-        teams_dict['all'] = teams
-
-        for team in teams:
-            teams_dict[team['team']] = team 
-    
-    return teams_dict
-
-def generate_calendar(matches, teams):
+def generate_calendar(matches):
     """
     Generate a .ics file matches from a dicationary.
 
     Arguments:
     matches -- A list of dicts containing all matches. (list)
-    teams -- A list of dicts containg all teams. (list)
     """
     cal = Calendar()
     
@@ -159,143 +50,88 @@ def generate_calendar(matches, teams):
     # Add all events to calendar
     for match in matches:
 
-        try:
-            event = Event()
+        event = Event()
 
-            home_team = match['home_team']
-            away_team = match['away_team']
+        home_team = match['home']
+        away_team = match['away']
+        
+        if match['circuit']['name']:
+            circuit_name = match['circuit']['name']
+        else:
+            circuit_name = match['circuit']['verbose_name']
 
-            if (
-                not home_team or not away_team):
-                continue
-            event.name = f"{match['tier']}{match['circ']} {away_team} at {home_team}"
-            
-            match_date = match['date']
-            if ('TBD' in match_date
-                or not match_date):
-                continue
+        circuit_abbrev = f"{match['circuit']['tier']}{match['circuit']['region']}"
+        
+        # This should not happen anymore, but just to be safe.
+        if (not home_team or not away_team): 
+            continue
+        
+        event.name = f"{circuit_abbrev} {away_team['name']} @ {home_team['name']}"            
 
-            # Set all TDB times to midnight
-            if ('TBD' in match['time_(eastern)']
-                or not match['time_(eastern)']):
-                match_time = '00:00'
-            else:
-                # We don't need seconds!            
-                match_time = match['time_(eastern)'].replace(':00:00', ':00')
-                match_time = match_time.replace(':30:00', ':30')
-                match_time =  datetime.strptime(match_time, '%I:%M %p').strftime('%H:%M:%S') 
+        event.begin = dp.parse(match['start_time'])
+        event.duration = timedelta(minutes=60)     
 
-            # Convert match time from ET to UTC
-            et_match_dt = datetime.strptime(f'{match_date} {match_time}', '%Y-%m-%d %H:%M:%S')
-            utc_match_dt = convert_et_to_utc(et_match_dt)
+        # Tier and Circuit
+        description = circuit_name
 
-            event.begin = utc_match_dt.strftime('%Y-%m-%d %H:%M:%S')
-            event.duration = timedelta(minutes=60)     
+        # Add Caster Details to Description
+        if match['primary_caster']:
+            description += f'\nCasted by {match["primary_caster"]["name"]}'
 
-            description = ''
-
-            # Tier and Circuit
-            if match['tier'] and match['circ']:
-                tier = f'Tier {match["tier"]}'
-
-                circuit = ''
-                circ_abbr = match['circ']
-
-                if circ_abbr == 'W':
-                    circuit = 'West'
-                elif circ_abbr == 'E':
-                    circuit = 'East'
-                elif circ_abbr == 'Wa':
-                    circuit = 'West Conference A'
-                elif circ_abbr == 'Wb':
-                    circuit = 'West Conference B'
-
-                description += f'{tier} {circuit}'                
-
-            # Add Caster Details to Description
-            if match['caster']:
-                description += f'\nCasted by {match["caster"]}'
-            else:
-                description += f'\nNo caster yet'
-            
-            if match['co-casters']:
-                description += f'\nCo-Casted by {match["co-casters"]}'
+            if match['secondary_casters']:
+                description += f'\nCo-Casted by '
+                for cocaster in match['secondary_casters']:
+                    description += cocaster['name'] + ','
+                
+                # Get rid of trailing comma
+                description = description.rstrip(',')
 
             # Stream Link
-            link = ''
-            if match['stream_link'] and 'TBD' not in match['stream_link'] :
-                link = match['stream_link']
+            if match['primary_caster']['stream_link']:
+                description += f"\n{match['primary_caster']['stream_link']}"
 
-            if link:
-                if not link.startswith('http'):
-                    link = f'https://{link}'
-                                                
-                description += f'\n{link}'
-
-
-            # Add Team Stats
-            try:
-                if (
-                    match['away_team'] in teams.keys()
-                    and match['home_team'] in teams.keys()
-                ):
-                    away_team = teams[match['away_team']]
-                    home_team = teams[match['home_team']]
-
-                    # Away Team Stats
-                    description += f'\n\n[{match["away_team"]}]'
-                    description += f'\nPlayoff Seed: {away_team["playoff_seed"]} (season {away_team["match_wins"]}W/{away_team["matches_lost"]}L)'
-                    
-                    description += '\n'
-                    
-                    for member in away_team['members']:
-                        description += f'{member}, '
-                    
-                    description = description.rstrip(', ')
-
-                    # Home Team Stats
-                    description += f'\n\n[{match["home_team"]}]'
-                    description += f'\nPlayoff Seed: {home_team["playoff_seed"]} (season {home_team["match_wins"]}W/{home_team["matches_lost"]}L)'
-                    
-                    description += '\n'
-                    
-                    for member in home_team['members']:
-                        description += f'{member}, '
-                    
-                    description = description.rstrip(', ')
-
-            except:
-                pass                    
-
-            # VOD Link            
-            if match['vod_link']:
-                description += f'\n\nVOD Link:\n{match["vod_link"]}'
-
-            event.description = description
-
-            # Finalize Event
-            cal.events.add(event)
+        else:
+            description += f'\nNo caster yet'
         
-        except ValueError:    
-            pass
-    
+        
+
+        # Away Team Stats
+        description += f"\n\n[{away_team['name']}]"
+        description += f"\n({away_team['wins']}W/{away_team['losses']}L)"
+        
+        description += '\n'
+        
+        for member in away_team['members']:
+            description += f'{member}, '
+        
+        description = description.rstrip(', ')
+
+        # Home Team Stats
+        description += f"\n\n[{home_team['name']}]"
+        description += f"\n({home_team['wins']}W/{home_team['losses']}L)"
+        
+        description += '\n'
+        
+        for member in home_team['members']:
+            description += f'{member}, '
+        
+        description = description.rstrip(', ')
+
+        event.description = description
+
+        # Finalize Event
+        cal.events.add(event)
+            
     with open('matches.ics', 'w') as cal_file:
         cal_file.writelines(cal)    
 
 if __name__ == '__main__':
     """
-    Run from command line
+    Run from command line.
 
     Arguments:
-    filename -- Filename to give where CSV of match data will be written.        
+    params -- API filter querystring parameters to pass to /matches/ endpoint.
     """
-    try:
-        filename = sys.argv[1]  
-    except IndexError:
-        filename = 'matches.csv'
-
-    get_sheet_csv('match_csv_url', 'matches.csv')
-    get_sheet_csv('teams_csv_url', 'teams.csv')
-    matches = parse_matches_csv('matches.csv')
-    teams = parse_teams_csv('teams.csv')
-    generate_calendar(matches, teams)    
+    params = sys.argv[1]
+    matches = get_match_data(params)      
+    generate_calendar(matches)    
