@@ -91,7 +91,7 @@ def generate_calendar(matches):
                 description += f"\n{match['primary_caster']['stream_link']}"
         
         # Away Team Stats
-        description += f"\n\n🔶 {away_team['name']} [{away_team['wins']}W/{away_team['wins']}L]"
+        description += f"\n\n🔷 {away_team['name']} [{away_team['wins']}W/{away_team['wins']}L]"
         
         description += '\n\n'
         
@@ -101,7 +101,7 @@ def generate_calendar(matches):
         description = description.rstrip(', ')
 
         # Home Team Stats
-        description += f"\n\n🔷 {home_team['name']} [{home_team['wins']}W/{home_team['wins']}L]"        
+        description += f"\n\n🔶 {home_team['name']} [{home_team['wins']}W/{home_team['wins']}L]"        
         description += '\n\n'
         
         for member in home_team['members']:
