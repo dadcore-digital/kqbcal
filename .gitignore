@@ -18,3 +18,4 @@ video/
 credentials.json
 *.csv
 *.ics
+settings.json
