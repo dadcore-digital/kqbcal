@@ -21,10 +21,11 @@ def get_match_data(params):
     # Handle paginated results
     if resp['next']:
 
-        while resp['next']:
+        while len(matches) < resp['count']:
             matches += (resp['results'])
             url = resp['next']
-            resp = requests.get(url).json()
+            if url:
+                resp = requests.get(url).json()
     
     # Just one page!
     else:
