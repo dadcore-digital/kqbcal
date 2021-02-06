@@ -67,6 +67,7 @@ def generate_match_calendar(matches):
     cal.extra.append(
         ContentLine(name='X-WR-CALDESC', value='Upcoming matches and events in the Killer Queen Black community.'))  
     cal.extra.append(ContentLine(name='X-PUBLISHED-TTL', value='PT15M'))  
+    cal.extra.append(ContentLine(name='TZNAME', value='UTC'))  
 
     # Add all events to calendar
     for match in matches:
@@ -172,22 +173,67 @@ def generate_event_calendar(events):
         else:
             event.duration = timedelta(minutes=60)     
 
-        # Tier and Circuit
-        description = entry['description']
+        # Base Description
+        description = str(entry['description'])
 
+        # Event Links 
         if entry['links']:
             description += '\n\n[Event Links]\n'
 
             for link in entry['links']:
                 description += f"\n{link['name']}:\n{link['url']}\n"
 
-        event.description = description
+        # Organizers
+        if entry['organizers']:
+            description += '\n\n[Organizers]\n'
+            
+            for organizer in entry['organizers']:
+                description += f"{organizer['name']}"
+                if organizer['discord_username']:
+                    description += f"discord: @{organizer['discord_username']}\n"
+                if organizer['twitch_username']:
+                    description += f"twitch: https://twitch.tv/{organizer['twitch_username']}\n"
+                description += '\n\n'
 
+        # Finalize Description
+        event.description = description
         # Finalize Event
         cal.events.add(event)
+
             
     with open('events.ics', 'w') as cal_file:
         cal_file.writelines(cal)
+
+
+def merge_calendars(filenames, output='all.ics'):
+    """
+    Given a list of ics filenames, merge calendars together into combined cal.
+
+    Arguments:
+    filenames -- A list of .ics files in current working directory to merge
+                (list)
+    output -- Name of ICS file to output (str) (optional)
+    """
+    new_cal = Calendar()
+
+    new_cal.extra.append(ContentLine(name='X-WR-CALNAME', value='KQB All'))  
+    new_cal.extra.append(
+        ContentLine(name='X-WR-CALDESC', value='All matches and events in the Killer Queen Black community.'))  
+    new_cal.extra.append(ContentLine(name='X-PUBLISHED-TTL', value='PT15M'))  
+    new_cal.extra.append(ContentLine(name='TZNAME', value='UTC'))  
+
+    existing_calendars = []
+
+    for file in filenames:
+        with open(file) as f:
+            existing_calendars.append(Calendar(f.read()))
+    
+    for calendar in existing_calendars:
+        for event in calendar.events:
+            new_cal.events.add(event)
+    
+    with open(output, 'w') as cal_file:
+        cal_file.writelines(new_cal) 
 
 
 if __name__ == '__main__':
@@ -202,7 +248,12 @@ if __name__ == '__main__':
         matches = get_matches(params)      
         generate_match_calendar(matches)
 
-    if 'events'in sys.argv[1]:
+    elif 'events'in sys.argv[1]:
         events = get_events()
-        generate_event_calendar(events)  
+        generate_event_calendar(events)
+
+    elif 'merge' in sys.argv[1]:
+        filenames = sys.argv[2:]
+        merge_calendars(filenames)
+
 
