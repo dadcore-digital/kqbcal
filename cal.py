@@ -76,7 +76,7 @@ def generate_match_calendar(matches):
 
         home_team = match['home']
         away_team = match['away']
-        
+
         if match['circuit']['name']:
             circuit_name = match['circuit']['name']
         else:
@@ -118,7 +118,7 @@ def generate_match_calendar(matches):
         description += '\n\n'
         
         for member in away_team['members']:
-            description += f'{member}, '
+            description += f"{member['name']}, "
         
         description = description.rstrip(', ')
 
@@ -127,7 +127,7 @@ def generate_match_calendar(matches):
         description += '\n\n'
         
         for member in home_team['members']:
-            description += f'{member}, '
+            description += f"{member['name']}, "
         
         description = description.rstrip(', ')
 
