@@ -1,5 +1,5 @@
 appnope==0.1.0
-arrow==0.14.7
+arrow==0.15.1
 backcall==0.2.0
 blessings==1.7
 bpython==0.19
